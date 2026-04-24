@@ -25,12 +25,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] { background-color: #FFFFFF; }
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 多國語系字典檔
+# 2. 多國語系字典檔 (修正寫死的 Chip 文字)
 # ==========================================
 LANG_DICT = {
     "繁體中文": {
         "title": "INTEKPLUS Bump AOI 3D mapping tool",
-        "subtitle": "Version 1: 支援本機與雲端載入，優化 3D 渲染流暢度 (手機版建議橫向檢視)",
+        "subtitle": "Version 1.1: 修正分群顯示邏輯與優化 3D 渲染 (手機版建議橫向檢視)",
         "sidebar_title": "🌐 語言與設定 / Language",
         "header_row": "設定 CSV 標題列位置 (0 代表第一列)",
         "step1": "📁 步驟 1：載入機台檢測報表",
@@ -42,19 +42,19 @@ LANG_DICT = {
         "select_x": "選擇 X 座標",
         "select_y": "選擇 Y 座標",
         "select_z": "選擇 Z 軸 (Data Value)",
-        "select_chip": "選擇 Chip No. 欄位在哪一個 (可選)",
-        "no_chip": "無 (不分 Chip)，全部疊一起",
-        "select_target_chip": "請選擇要繪製的 Chip (可多選)",
+        "select_chip": "選擇分群欄位 (例如 Chip No. 或 Stage)",
+        "no_chip": "無 (不分群)，全部疊一起",
+        "select_target_chip": "請選擇要繪製的目標 (可多選)",
         "step3": "📊 步驟 3：進階設定與建立散佈圖",
         "enable_range": "啟用手動設定座標軸範圍 (多料片統一全球距)",
         "submit_btn": "🚀 套用設定並建立 3D 散佈圖",
         "loading": "正在將數據載入記憶體，請稍候...",
         "drawing": "啟動 GPU 渲染，正在繪製高畫質 3D 圖表...",
-        "err_no_chip": "請先在上方選擇至少一顆 Chip！"
+        "err_no_chip": "請先在上方選擇至少一個目標！"
     },
     "English": {
         "title": "INTEKPLUS Bump AOI 3D mapping tool",
-        "subtitle": "Version 1: Supports local & cloud data, optimized rendering (Landscape recommended)",
+        "subtitle": "Version 1.1: Fixed grouping logic & optimized rendering (Landscape recommended)",
         "sidebar_title": "🌐 Language Settings",
         "header_row": "Set CSV Header Row Index (0 = first row)",
         "step1": "📁 Step 1: Load Inspection Data",
@@ -66,19 +66,19 @@ LANG_DICT = {
         "select_x": "Select X Axis",
         "select_y": "Select Y Axis",
         "select_z": "Select Z Axis (Data Value)",
-        "select_chip": "Select which column is Chip No. (Optional)",
-        "no_chip": "None (No Chip distinction), all stacked",
-        "select_target_chip": "Select Chips to Plot (Multiple allowed)",
+        "select_chip": "Select Grouping Column (e.g., Chip No. or Stage)",
+        "no_chip": "None (Plot all together)",
+        "select_target_chip": "Select Targets to Plot (Multiple allowed)",
         "step3": "📊 Step 3: Advanced Settings & Generation",
         "enable_range": "Enable Manual Axis Range (Global Scale)",
         "submit_btn": "🚀 Apply & Create 3D Scatter Plot",
         "loading": "Loading data into memory, please wait...",
         "drawing": "Starting GPU rendering, generating 3D plot...",
-        "err_no_chip": "Please select at least one Chip above!"
+        "err_no_chip": "Please select at least one target above!"
     },
     "한국어": {
         "title": "INTEKPLUS Bump AOI 3D mapping tool",
-        "subtitle": "Version 1: 로컬/클라우드 지원, 렌더링 최적화 (모바일 가로 모드 권장)",
+        "subtitle": "Version 1.1: 그룹화 로직 수정 및 렌더링 최적화 (모바일 가로 모드 권장)",
         "sidebar_title": "🌐 언어 설정",
         "header_row": "CSV 헤더 행 인덱스 설정 (0 = 첫 번째 행)",
         "step1": "📁 1단계: 검사 데이터 로드",
@@ -90,15 +90,15 @@ LANG_DICT = {
         "select_x": "X 축 좌표 선택",
         "select_y": "Y 축 좌표 선택",
         "select_z": "Z 축 선택 (데이터 값)",
-        "select_chip": "어떤 열이 Chip No.인지 선택 (선택 사항)",
-        "no_chip": "없음 (칩 구분 없음), 모두 겹쳐서 표시",
-        "select_target_chip": "시각화할 칩 선택 (다중 선택 가능)",
+        "select_chip": "그룹화 열 선택 (예: Chip No. 또는 Stage)",
+        "no_chip": "없음 (모두 겹쳐서 표시)",
+        "select_target_chip": "시각화할 대상 선택 (다중 선택 가능)",
         "step3": "📊 3단계: 고급 설정 및 산점도 생성",
         "enable_range": "수동 좌표축 범위 설정 (전역 스케일 통일)",
         "submit_btn": "🚀 적용 및 3D 산점도 생성",
         "loading": "메모리에 데이터를 로드하는 중입니다...",
         "drawing": "GPU 렌더링 시작, 고화질 3D 차트 생성 중...",
-        "err_no_chip": "위에서 하나 이상의 칩을 선택해주세요!"
+        "err_no_chip": "위에서 하나 이상의 대상을 선택해주세요!"
     }
 }
 
@@ -149,7 +149,8 @@ elif gdrive_url:
 if data_source is not None:
     try:
         with st.spinner(t["loading"]):
-            df = load_data(data_source, header_row)
+            # 💡 關鍵修復：加上 .copy() 確保快取不被污染
+            df = load_data(data_source, header_row).copy()
         
         st.success(t["load_success"])
         
@@ -158,11 +159,11 @@ if data_source is not None:
 
         columns = df.columns.tolist()
         
+        # 💡 關鍵修復：外層迴圈改為關鍵字，確保精準度優先
         def get_smart_index(col_names, keywords, fallback=0):
-            for i, col in enumerate(col_names):
-                col_lower = str(col).lower()
-                for kw in keywords:
-                    if kw.lower() in col_lower:
+            for kw in keywords:
+                for i, col in enumerate(col_names):
+                    if kw.lower() in str(col).lower():
                         return i
             return fallback if fallback < len(col_names) else 0
 
@@ -186,22 +187,17 @@ if data_source is not None:
                 chip_options = [t["no_chip"]] + columns
                 chip_col = st.selectbox(t["select_chip"], options=chip_options, index=idx_chip)
 
-            # 🌟 終極修復魔法：強制作業與向下填滿 🌟
-            # 1. 確保 XYZ 欄位都是數字，若是夾雜英文字母或空白，直接轉為 NaN
             df[x_col] = pd.to_numeric(df[x_col], errors='coerce')
             df[y_col] = pd.to_numeric(df[y_col], errors='coerce')
             df[z_col] = pd.to_numeric(df[z_col], errors='coerce')
 
-            # 2. 如果使用者有選擇 Chip No，使用 ffill() 讓空白的 Bump 列自動繼承上方的 Core ID
             if chip_col != t["no_chip"]:
                 df[chip_col] = df[chip_col].ffill()
 
-            # 3. 剔除座標缺漏的無效資料
             plot_df = df.dropna(subset=[x_col, y_col, z_col])
 
-            # 4. 防呆保護：如果剔除後沒有有效資料，顯示警告而非直接崩潰
             if plot_df.empty:
-                st.warning("⚠️ 找不到有效的 3D 數值。請確認您左側的【CSV 標題列位置】是否設定正確，或檢查選取的 XYZ 欄位是否存在資料。")
+                st.warning("⚠️ 找不到有效的 3D 數值。請確認您左側的【CSV 標題列位置】是否設定正確。")
             else:
                 selected_chips = []
                 if chip_col != t["no_chip"]:
@@ -213,10 +209,8 @@ if data_source is not None:
                 
                 with st.form("plot_settings_form", border=False):
                     use_custom_range = st.checkbox(t["enable_range"])
-                    
                     c1, c2, c3 = st.columns(3)
                     
-                    # 加入安全預設值，防止空資料導致 NaN 崩潰
                     safe_x_min = float(plot_df[x_col].min()) if not plot_df.empty else 0.0
                     safe_x_max = float(plot_df[x_col].max()) if not plot_df.empty else 100.0
                     safe_y_min = float(plot_df[y_col].min()) if not plot_df.empty else 0.0
@@ -248,7 +242,8 @@ if data_source is not None:
                         else:
                             for chip in selected_chips:
                                 chip_df = plot_df[plot_df[chip_col] == chip]
-                                plots_to_draw.append((f"Chip: {chip} | {z_col} Scatter Plot", chip_df))
+                                # 💡 關鍵修復：標題動態化，不再寫死 "Chip"
+                                plots_to_draw.append((f"{chip_col}: {chip} | {z_col} Scatter Plot", chip_df))
                         
                         for title, data_subset in plots_to_draw:
                             if data_subset.empty:
