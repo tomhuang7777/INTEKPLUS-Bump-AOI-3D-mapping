@@ -1,3 +1,21 @@
+"""
+=======================================================================
+[INTEKPLUS 3D AOI Mapping Tool - 改版紀錄]
+
+* 2026/04 (v1.0): 
+  - 原因：需要快速視覺化機台報表。
+  - 改善：初版上線。支援本機與雲端 CSV 載入，基礎 3D 渲染與動態座標軸。
+
+* 2026/04 (v1.1): 
+  - 原因：切換分群條件時，圖表標題沒跟著變，且快取資料會互相干擾。
+  - 改善：加入 .copy() 保護原始資料，並將 3D 圖表標題改為動態顯示。
+
+* 2026/04/25 (v1.2): 
+  - 原因：NG 報表結尾多出逗號與字串，導致 Pandas 解析時欄位向左錯位。
+  - 改善：加入防偏移校正邏輯，偵測到長度不符時自動重置 Index 並補齊欄位。
+=======================================================================
+"""
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -25,18 +43,18 @@ div[data-testid="stVerticalBlockBorderWrapper"] { background-color: #FFFFFF; }
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 多國語系字典檔 (修正寫死的 Chip 文字)
+# 2. 多國語系字典檔
 # ==========================================
 LANG_DICT = {
     "繁體中文": {
         "title": "INTEKPLUS Bump AOI 3D mapping tool",
-        "subtitle": "Version 1.1: 修正分群顯示邏輯與優化 3D 渲染 (手機版建議橫向檢視)",
+        "subtitle": "Version 1.2: 修正機台報表欄位偏移 Bug (手機版建議橫向檢視)",
         "sidebar_title": "🌐 語言與設定 / Language",
         "header_row": "設定 CSV 標題列位置 (0 代表第一列)",
         "step1": "📁 步驟 1：載入機台檢測報表",
         "upload_csv": "📂 方式 A：上傳本機 CSV 檔案",
         "gdrive_url": "🔗 方式 B：貼上 Google 雲端公開連結",
-        "load_success": "✅ 數據載入成功！",
+        "load_success": "✅ 數據載入與對齊成功！",
         "preview": "👁️ 預覽載入的原始資料 (點擊展開)",
         "step2": "⚙️ 步驟 2：設定 XYZ 座標軸與料片分析",
         "select_x": "選擇 X 座標",
@@ -48,19 +66,19 @@ LANG_DICT = {
         "step3": "📊 步驟 3：進階設定與建立散佈圖",
         "enable_range": "啟用手動設定座標軸範圍 (多料片統一全球距)",
         "submit_btn": "🚀 套用設定並建立 3D 散佈圖",
-        "loading": "正在將數據載入記憶體，請稍候...",
+        "loading": "正在解析與校正數據結構，請稍候...",
         "drawing": "啟動 GPU 渲染，正在繪製高畫質 3D 圖表...",
         "err_no_chip": "請先在上方選擇至少一個目標！"
     },
     "English": {
         "title": "INTEKPLUS Bump AOI 3D mapping tool",
-        "subtitle": "Version 1.1: Fixed grouping logic & optimized rendering (Landscape recommended)",
+        "subtitle": "Version 1.2: Fixed CSV column shift bug (Landscape recommended)",
         "sidebar_title": "🌐 Language Settings",
         "header_row": "Set CSV Header Row Index (0 = first row)",
         "step1": "📁 Step 1: Load Inspection Data",
         "upload_csv": "📂 Method A: Upload Local CSV",
         "gdrive_url": "🔗 Method B: Paste Google Drive Public Link",
-        "load_success": "✅ Data loaded successfully!",
+        "load_success": "✅ Data aligned and loaded successfully!",
         "preview": "👁️ Preview Raw Data (Click to Expand)",
         "step2": "⚙️ Step 2: Set XYZ Axes & Chip Analysis",
         "select_x": "Select X Axis",
@@ -72,19 +90,19 @@ LANG_DICT = {
         "step3": "📊 Step 3: Advanced Settings & Generation",
         "enable_range": "Enable Manual Axis Range (Global Scale)",
         "submit_btn": "🚀 Apply & Create 3D Scatter Plot",
-        "loading": "Loading data into memory, please wait...",
+        "loading": "Parsing and aligning data structure, please wait...",
         "drawing": "Starting GPU rendering, generating 3D plot...",
         "err_no_chip": "Please select at least one target above!"
     },
     "한국어": {
         "title": "INTEKPLUS Bump AOI 3D mapping tool",
-        "subtitle": "Version 1.1: 그룹화 로직 수정 및 렌더링 최적화 (모바일 가로 모드 권장)",
+        "subtitle": "Version 1.2: CSV 열 이동 버그 수정 (모바일 가로 모드 권장)",
         "sidebar_title": "🌐 언어 설정",
         "header_row": "CSV 헤더 행 인덱스 설정 (0 = 첫 번째 행)",
         "step1": "📁 1단계: 검사 데이터 로드",
         "upload_csv": "📂 방법 A: 로컬 CSV 파일 업로드",
         "gdrive_url": "🔗 방법 B: 공개 Google 드라이브 링크 붙여넣기",
-        "load_success": "✅ 데이터가 성공적으로 로드되었습니다!",
+        "load_success": "✅ 데이터 정렬 및 로드 성공!",
         "preview": "👁️ 원본 데이터 미리보기 (클릭하여 확장)",
         "step2": "⚙️ 2단계: XYZ 축 및 칩 분석 설정",
         "select_x": "X 축 좌표 선택",
@@ -96,7 +114,7 @@ LANG_DICT = {
         "step3": "📊 3단계: 고급 설정 및 산점도 생성",
         "enable_range": "수동 좌표축 범위 설정 (전역 스케일 통일)",
         "submit_btn": "🚀 적용 및 3D 산점도 생성",
-        "loading": "메모리에 데이터를 로드하는 중입니다...",
+        "loading": "데이터 구조 분석 및 정렬 중...",
         "drawing": "GPU 렌더링 시작, 고화질 3D 차트 생성 중...",
         "err_no_chip": "위에서 하나 이상의 대상을 선택해주세요!"
     }
@@ -116,7 +134,20 @@ header_row = st.sidebar.number_input(t["header_row"], min_value=0, value=0, step
 def load_data(file_source, header_idx):
     if hasattr(file_source, 'seek'):
         file_source.seek(0)
-    return pd.read_csv(file_source, header=header_idx)
+    
+    # 讀取資料
+    df = pd.read_csv(file_source, header=header_idx)
+    
+    # 🌟 解決機台報表 NG 行結尾多出逗號，導致 Pandas 欄位「向左偏移」的終極魔法 🌟
+    if not isinstance(df.index, pd.RangeIndex):
+        original_cols = list(df.columns)
+        df = df.reset_index()
+        
+        extra_count = len(df.columns) - len(original_cols)
+        new_cols = original_cols + [f"Extra_Comment_{i+1}" for i in range(extra_count)]
+        df.columns = new_cols
+
+    return df
 
 def convert_gdrive_url(url):
     match = re.search(r"/file/d/([a-zA-Z0-9_-]+)", url)
@@ -149,7 +180,6 @@ elif gdrive_url:
 if data_source is not None:
     try:
         with st.spinner(t["loading"]):
-            # 💡 關鍵修復：加上 .copy() 確保快取不被污染
             df = load_data(data_source, header_row).copy()
         
         st.success(t["load_success"])
@@ -159,7 +189,6 @@ if data_source is not None:
 
         columns = df.columns.tolist()
         
-        # 💡 關鍵修復：外層迴圈改為關鍵字，確保精準度優先
         def get_smart_index(col_names, keywords, fallback=0):
             for kw in keywords:
                 for i, col in enumerate(col_names):
@@ -242,7 +271,6 @@ if data_source is not None:
                         else:
                             for chip in selected_chips:
                                 chip_df = plot_df[plot_df[chip_col] == chip]
-                                # 💡 關鍵修復：標題動態化，不再寫死 "Chip"
                                 plots_to_draw.append((f"{chip_col}: {chip} | {z_col} Scatter Plot", chip_df))
                         
                         for title, data_subset in plots_to_draw:
